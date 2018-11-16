@@ -2,9 +2,10 @@
 
 const co = require('co')
 const Promise = require('bluebird')
+const awscred = Promise.promisifyAll(require('awscred'))
 
 // const _ = require('lodash')
-// const aws4 = require('../../lib/aws4');
+// const aws4 = require('../../lib/aws4')
 // const AWS = require('aws-sdk');
 // AWS.config.region = 'us-east-1';
 // const SSM = new AWS.SSM();
@@ -39,16 +40,22 @@ let init = co.wrap(function * () {
   process.env.AWS_REGION = 'us-east-1'
   process.env.cognito_client_id = 'test_cognito_client_id'
   process.env.cognito_user_pool_id = 'us-east-1_w0oiBcQQm'
+  process.env.cognito_server_client_id = '7u3a2r65lddqeb7pupsh02vvq'
+
+  if (!process.env.AWS_ACCESS_KEY_ID) {
+    let cred = (yield awscred.loadAsync()).credentials
+    process.env.AWS_ACCESS_KEY_ID = cred.accessKeyId
+    process.env.AWS_SECRET_ACCESS_KEY = cred.secretAccessKey
+  }
+
+  initialized = true
 
   console.log('AWS credentials loaded')
 
-  process.env.cognito_server_client_id = '7u3a2r65lddqeb7pupsh02vvq'
   // process.env.AWS_XRAY_CONTEXT_MISSING = 'LOG_ERROR'
   // process.env.STAGE = 'dev'
 
-  // yield aws4.init();
-
-  initialized = true
+  // yield aws4.init()
 })
 
 module.exports.init = init
