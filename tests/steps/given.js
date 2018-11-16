@@ -31,6 +31,7 @@ let an_authenticated_user = function * () {
       { Name: 'email', Value: email }
     ]
   }
+
   yield cognito.adminCreateUser(createReq).promise()
 
   console.log(`[${username}] - user is created`)
@@ -68,7 +69,7 @@ let an_authenticated_user = function * () {
     lastName,
     idToken: challengeResp.AuthenticationResult.IdToken
   }
-};
+}
 
 module.exports = {
   an_authenticated_user
