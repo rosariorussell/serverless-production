@@ -4,7 +4,8 @@
   "description": "",
   "main": "handler.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "integration-test": "env TEST_MODE=handler ./node_modules/.bin/mocha tests/test_cases --reporter spec",
+    "acceptance-test": "env TEST_MODE=http TEST_ROOT=https://y94uwslqk5.execute-api.us-east-1.amazonaws.com/dev ./node_modules/.bin/mocha tests/test_cases --reporter spec --retries 3 --timeout 5000"
   },
   "author": "",
   "license": "ISC",
@@ -18,6 +19,12 @@
   },
   "devDependencies": {
     "aws-sdk": "^2.355.0",
+    "awscred": "^1.4.1",
+    "chai": "^4.2.0",
+    "chance": "^1.0.16",
+    "cheerio": "^1.0.0-rc.2",
+    "lodash": "^4.17.11",
+    "mocha": "^5.2.0",
     "serverless-pseudo-parameters": "^2.2.0"
   }
 }
