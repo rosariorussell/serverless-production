@@ -7,7 +7,7 @@ const Mustache = require('mustache')
 const http = require('superagent-promise')(require('superagent'), Promise)
 const aws4 = require('aws4')
 const URL = require('url')
-const awscred = Promise.promisifyAll(require('awscred'))
+const awscred = Promise.promisifyAll(require('../lib/awscred'))
 
 const awsRegion = process.env.AWS_REGION
 const cognitoUserPoolId = process.env.cognito_user_pool_id
@@ -37,6 +37,10 @@ function * getRestaurants () {
     let cred = (yield awscred.loadAsync()).credentials
     process.env.AWS_ACCESS_KEY_ID = cred.accessKeyId
     process.env.AWS_SECRET_ACCESS_KEY = cred.secretAccessKey
+
+    if (cred.sessionToken) {
+      process.env.AWS_SESSION_TOKEN = cred.sessionToken
+    }
   }
 
   aws4.sign(opts)

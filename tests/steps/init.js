@@ -2,7 +2,8 @@
 
 const co = require('co')
 const Promise = require('bluebird')
-const awscred = Promise.promisifyAll(require('awscred'))
+// const awscred = Promise.promisifyAll(require('awscred'))
+const awscred = Promise.promisifyAll(require('../../lib/awscred'))
 
 // const _ = require('lodash')
 // const aws4 = require('../../lib/aws4')
@@ -46,6 +47,10 @@ let init = co.wrap(function * () {
     let cred = (yield awscred.loadAsync()).credentials
     process.env.AWS_ACCESS_KEY_ID = cred.accessKeyId
     process.env.AWS_SECRET_ACCESS_KEY = cred.secretAccessKey
+
+    if (cred.sessionToken) {
+      process.env.AWS_SESSION_TOKEN = cred.sessionToken
+    }
   }
 
   initialized = true
