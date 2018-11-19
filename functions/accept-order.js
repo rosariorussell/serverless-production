@@ -1,34 +1,23 @@
 'use strict'
 
-const _ = require('lodash')
 const co = require('co')
 const AWS = require('aws-sdk')
 const kinesis = new AWS.Kinesis()
-const chance = require('chance').Chance()
 const streamName = process.env.order_events_stream
 
-const UNAUTHORIZED = {
-  statusCode: 401,
-  body: 'unauthorized'
-}
-
 module.exports.handler = co.wrap(function * (event, context, cb) {
-  let restaurantName = JSON.parse(event.body).restaurantName
+  let body = JSON.parse(event.body)
+  let restaurantName = body.restaurantName
+  let orderId = body.orderId
+  let userEmail = body.userEmail
 
-  let userEmail = _.get(event, 'requestContext.authorizer.claims.email')
-  if (!userEmail) {
-    cb(null, UNAUTHORIZED)
-    return
-  }
-
-  let orderId = chance.guid()
-  console.log(`placing order ID [${orderId}] to [${restaurantName}] for user [${userEmail}]`)
+  console.log(`restaurant [${restaurantName}] accepted order ID [${orderId}] from user [${userEmail}]`)
 
   let data = {
     orderId,
     userEmail,
     restaurantName,
-    eventType: 'order_placed'
+    eventType: 'order_accepted'
   }
 
   let req = {
@@ -39,7 +28,7 @@ module.exports.handler = co.wrap(function * (event, context, cb) {
 
   yield kinesis.putRecord(req).promise()
 
-  console.log(`published 'order_placed' event into Kinesis`)
+  console.log(`published 'order_accepted' event into Kinesis`)
 
   let response = {
     statusCode: 200,
