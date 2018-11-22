@@ -1,17 +1,26 @@
-'use strict'
+'use strict';
 
-const co = require('co')
-const AWS = require('aws-sdk')
-const kinesis = new AWS.Kinesis()
-const streamName = process.env.order_events_stream
+const co         = require('co');
+const kinesis    = require('../lib/kinesis');
+const log        = require('../lib/log');
+const cloudwatch = require('../lib/cloudwatch');
+const wrapper    = require('../middleware/wrapper');
 
-module.exports.handler = co.wrap(function * (event, context, cb) {
-  let body = JSON.parse(event.body)
-  let restaurantName = body.restaurantName
-  let orderId = body.orderId
-  let userEmail = body.userEmail
+const streamName = process.env.order_events_stream;
 
-  console.log(`restaurant [${restaurantName}] has fulfilled order ID [${orderId}] from user [${userEmail}]`)
+const handler = co.wrap(function* (event, context, cb) {
+  let body = JSON.parse(event.body);
+  log.debug(`request body is valid JSON`, { requestBody: event.body });
+
+  let restaurantName = body.restaurantName;
+  let orderId = body.orderId;
+  let userEmail = body.userEmail;
+
+  correlationIds.set('order-id', orderId);
+  correlationIds.set('restaurant-name', restaurantName);
+  correlationIds.set('user-email', userEmail);
+
+  log.debug('restaurant has fulfilled order', { orderId, restaurantName, userEmail });
 
   let data = {
     orderId,
@@ -20,20 +29,25 @@ module.exports.handler = co.wrap(function * (event, context, cb) {
     eventType: 'order_fulfilled'
   }
 
-  let req = {
+  let kinesisReq = {
     Data: JSON.stringify(data), // the SDK would base64 encode this for us
     PartitionKey: orderId,
     StreamName: streamName
-  }
+  };
 
-  yield kinesis.putRecord(req).promise()
+  yield cloudwatch.trackExecTime(
+    "KinesisPutRecordLatency", 
+    () => kinesis.putRecord(kinesisReq).promise()
+  );
 
-  console.log(`published 'order_fulfilled' event into Kinesis`)
+  log.debug(`published event into Kinesis`, { eventName: 'order_fulfilled' });
 
   let response = {
     statusCode: 200,
     body: JSON.stringify({ orderId })
   }
 
-  cb(null, response)
-})
+  cb(null, response);
+});
+
+module.exports.handler = wrapper(handler);

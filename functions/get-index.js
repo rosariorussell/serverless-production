@@ -1,69 +1,103 @@
-'use strict'
+'use strict';
 
-const co = require('co')
-const Promise = require('bluebird')
-const fs = Promise.promisifyAll(require('fs'))
-const Mustache = require('mustache')
-const http = require('superagent-promise')(require('superagent'), Promise)
-const aws4 = require('../lib/aws4')
-const URL = require('url')
+const co         = require("co");
+const Promise    = require("bluebird");
+const fs         = Promise.promisifyAll(require("fs"));
+const Mustache   = require('mustache');
+const http       = require('../lib/http');
+const URL        = require('url');
+const aws4       = require('../lib/aws4');
+const log        = require('../lib/log');
+const cloudwatch = require('../lib/cloudwatch');
+const AWSXRay    = require('aws-xray-sdk');
+const wrapper    = require('../middleware/wrapper');
+const { ssm, secretsManager } = require('middy/middlewares');
 
-const awsRegion = process.env.AWS_REGION
-const cognitoUserPoolId = process.env.cognito_user_pool_id
-const cognitoClientId = process.env.cognito_client_id
+const STAGE     = process.env.STAGE;
+const awsRegion = process.env.AWS_REGION;
 
-const restaurantsApiRoot = process.env.restaurants_api
-const ordersApiRoot = process.env.orders_api
-const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-var html
+var html;
 
-function * loadHtml () {
+function* loadHtml() {
   if (!html) {
-    html = yield fs.readFileAsync('static/index.html', 'utf-8')
+    html = yield fs.readFileAsync('static/index.html', 'utf-8');
   }
 
-  return html
+  return html;
 }
 
-function * getRestaurants () {
-  let url = URL.parse(restaurantsApiRoot)
+function* getRestaurants(restaurantsApiUrl) {
+  let url = URL.parse(restaurantsApiUrl);
   let opts = {
     host: url.hostname,
     path: url.pathname
-  }
+  };
 
-  aws4.sign(opts)
+  aws4.sign(opts);
 
-  let httpReq = http
-    .get(restaurantsApiRoot)
-    .set('Host', opts.headers['Host'])
-    .set('X-Amz-Date', opts.headers['X-Amz-Date'])
-    .set('Authorization', opts.headers['Authorization'])
+  let httpReq = http({
+    uri: restaurantsApiUrl,
+    headers: opts.headers
+  });
+  
+  return new Promise((resolve, reject) => {
+    let f = co.wrap(function* (subsegment) {
+      if (subsegment) {
+        subsegment.addMetadata('url', restaurantsApiUrl);
+      }
 
-  if (opts.headers['X-Amz-Security-Token']) {
-    httpReq.set('X-Amz-Security-Token', opts.headers['X-Amz-Security-Token'])
-  }
+      try {
+        let body = (yield httpReq).body;
+        if (subsegment) {
+          subsegment.close();
+        }
+        resolve(body);
+      } catch (err) {
+        if (subsegment) {
+          subsegment.close(err);
+        }
+        reject(err);
+      }
+    });
 
-  return (yield httpReq).body
+    // the current sub/segment
+    let segment = AWSXRay.getSegment();
+
+    AWSXRay.captureAsyncFunc("getting restaurants", f, segment);
+  });
 }
 
-module.exports.handler = co.wrap(function * (event, context, callback) {
-  yield aws4.init()
+const handler = co.wrap(function* (event, context, callback) {
+  yield aws4.init();
 
-  let template = yield loadHtml()
-  let restaurants = yield getRestaurants()
-  let dayOfWeek = days[new Date().getDay()]
+  let template = yield loadHtml();
+  log.debug("loaded HTML template");
+
+  let restaurants = yield cloudwatch.trackExecTime(
+    "GetRestaurantsLatency",
+    () => getRestaurants(context.restaurants_api)
+  );
+  log.debug(`loaded ${restaurants.length} restaurants`);
+
+  let dayOfWeek = days[new Date().getDay()];
   let view = {
-    dayOfWeek,
+    dayOfWeek, 
     restaurants,
     awsRegion,
-    cognitoUserPoolId,
-    cognitoClientId,
-    searchUrl: `${restaurantsApiRoot}/search`,
-    placeOrderUrl: `${ordersApiRoot}`
-  }
-  let html = Mustache.render(template, view)
+    cognitoUserPoolId: context.cognito.user_pool_id,
+    cognitoClientId: context.cognito.client_id,
+    searchUrl: `${context.restaurants_api}/search`,
+    placeOrderUrl: `${context.orders_api}`
+  };
+  let html = Mustache.render(template, view);
+  log.debug(`rendered HTML [${html.length} bytes]`);
+
+  // uncomment this to cause function to err
+  // yield http({ uri: 'https://theburningmonk.com' });
+
+  cloudwatch.incrCount('RestaurantsReturned', restaurants.length);
 
   const response = {
     statusCode: 200,
@@ -71,7 +105,25 @@ module.exports.handler = co.wrap(function * (event, context, callback) {
     headers: {
       'content-type': 'text/html; charset=UTF-8'
     }
-  }
+  };
 
-  callback(null, response)
-})
+  callback(null, response);
+});
+
+module.exports.handler = wrapper(handler)
+  .use(ssm({
+    cache: true,
+    cacheExpiryInMillis: 3 * 60 * 1000, // 3 mins
+    setToContext: true,
+    names: {
+      restaurants_api: `/bigmouth/${STAGE}/restaurants_api`,
+      orders_api: `/bigmouth/${STAGE}/orders_api`
+    }
+  }))
+  .use(secretsManager({
+    cache: true,
+    cacheExpiryInMillis: 3 * 60 * 1000, // 3 mins
+    secrets: {
+      cognito: `/bigmouth/${STAGE}/cognito`
+    }
+  }));

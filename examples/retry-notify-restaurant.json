@@ -11,7 +11,8 @@
         "SigningCertUrl": "EXAMPLE",
         "MessageId": "95df01b4-ee98-5cb9-9903-4c221d41eb5e",
         "Message": "{\"orderId\":\"875ae3c4-c21c-59e6-9057-23694b75f5a2\",\"userEmail\":\"theburningmonk@gmail.com\",\"restaurantName\":\"Fangtasia\"}",
-        "MessageAttributes": {},
+        "MessageAttributes": {          
+        },
         "Type": "Notification",
         "UnsubscribeUrl": "EXAMPLE",
         "TopicArn": "arn:aws:sns:EXAMPLE",

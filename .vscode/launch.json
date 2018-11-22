@@ -3,12 +3,42 @@
   // Hover to view descriptions of existing attributes.
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
-  "configurations": [
+  "configurations": [  
+    {
+      "name": "Attach to SAM Local",
+      "type": "node",
+      "request": "attach",
+      "address": "localhost",
+      "port": 5858,
+      "localRoot": "${workspaceRoot}",
+      "remoteRoot": "/var/task"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "get-index",
+      "program": "${workspaceFolder}/node_modules/.bin/sls",
+      "args": [
+        "invoke",
+        "local",
+        "-f",
+        "get-index",
+        "-p",
+        "examples/get-index.json"
+      ],
+      "env": {
+        "restaurants_api": "https://8kbasri6v6.execute-api.us-east-1.amazonaws.com/dev/restaurants",
+        "cognito_user_pool_id": "us-east-1_DfuAwa0vB",
+        "cognito_client_id": "49lunjf7j7vsgmq9lhtfn4q7ma",
+        "SLS_DEBUG": "*",
+        "AWS_XRAY_CONTEXT_MISSING":"LOG_ERROR"
+      }
+    },
     {
       "type": "node",
       "request": "launch",
       "name": "get-restaurants",
-      "program": "${workspaceFolder}\\node_modules\\serverless\\bin\\serverless",
+      "program": "${workspaceFolder}/node_modules/.bin/sls",
       "args": [
         "invoke",
         "local",
@@ -18,14 +48,16 @@
         "{}"
       ],
       "env": {
-        "restaurants_table": "restaurants"
+        "restaurants_table": "restaurants",
+        "SLS_DEBUG": "*",
+        "AWS_XRAY_CONTEXT_MISSING":"LOG_ERROR"
       }
     },
     {
       "type": "node",
       "request": "launch",
       "name": "search-restaurants",
-      "program": "${workspaceFolder}\\node_modules\\serverless\\bin\\serverless",
+      "program": "${workspaceFolder}/node_modules/.bin/sls",
       "args": [
         "invoke",
         "local",
@@ -35,27 +67,89 @@
         "examples/search-restaurants.json"
       ],
       "env": {
-        "restaurants_table": "restaurants"
+        "restaurants_table": "restaurants",
+        "SLS_DEBUG": "*",
+        "AWS_XRAY_CONTEXT_MISSING":"LOG_ERROR"
       }
     },
     {
       "type": "node",
       "request": "launch",
-      "name": "get-index",
-      "program": "${workspaceFolder}\\node_modules\\serverless\\bin\\serverless",
+      "name": "create-alarm",
+      "program": "${workspaceFolder}/node_modules/.bin/sls",
       "args": [
         "invoke",
         "local",
         "-f",
-        "get-index",
-        "-d",
-        "{}"
+        "auto-create-api-alarms",
+        "-p",
+        "examples/create-alarm.json"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "notify-restaurant",
+      "program": "${workspaceFolder}/node_modules/.bin/sls",
+      "args": [
+        "invoke",
+        "local",
+        "-f",
+        "notify-restaurant",
+        "-p",
+        "examples/notify-restaurant.json"
       ],
       "env": {
-        "restaurants_api": "https://y94uwslqk5.execute-api.us-east-1.amazonaws.com/dev/restaurants",
-        "cognito_user_pool_id": "us-east-1_w0oiBcQQm",
-        "cognito_client_id": "gkci83lekc1o8s5mvitmf2l6b"
+        "AWS_XRAY_CONTEXT_MISSING":"LOG_ERROR"
       }
-    }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "place-order",
+      "program": "${workspaceFolder}/node_modules/.bin/sls",
+      "args": [
+        "invoke",
+        "local",
+        "-f",
+        "place-order",
+        "-p",
+        "examples/place-order.json"
+      ],
+      "env": {
+        "AWS_XRAY_CONTEXT_MISSING":"LOG_ERROR"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "integration tests",
+      "program": "${workspaceFolder}/node_modules/.bin/mocha",
+      "env": {
+        "TEST_MODE": "handler"
+      },
+      "args": [
+        "tests/test_cases",
+        "--reporter",
+        "spec"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "acceptance tests",
+      "program": "${workspaceFolder}/node_modules/.bin/mocha",
+      "env": {
+        "TEST_MODE": "http",
+        "TEST_ROOT": "https://8kbasri6v6.execute-api.us-east-1.amazonaws.com/dev/"
+      },
+      "args": [
+        "tests/test_cases",
+        "-t",
+        "2000",
+        "--reporter",
+        "spec"
+      ]
+    },    
   ]
 }
